@@ -3,9 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ChatController;
 
 Route::get('/', function () {
-    return view('home'); 
+    return view('home');
 })->name('home');
 
 Route::get('/login', [UserController::class, 'showLoginForm'])->name('login');
@@ -21,4 +22,9 @@ Route::middleware('auth')->group(function () {
     Route::resource('posts', PostController::class);
 });
 
+Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
+Route::post('/chat', [ChatController::class, 'send'])->name('chat.send');
 
+
+
+ 

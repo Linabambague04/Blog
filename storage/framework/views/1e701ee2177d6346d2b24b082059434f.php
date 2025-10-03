@@ -102,6 +102,93 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Botón flotante del chat -->
+<button id="chatToggleBtn" class="btn btn-primary rounded-circle position-fixed"
+        style="bottom: 20px; right: 20px; width: 60px; height: 60px; z-index: 1050;">
+    💬
+</button>
+
+<!-- Ventana de chat -->
+<div id="chatWindow" class="card shadow position-fixed" style="bottom: 90px; right: 20px; width: 350px; display: none; z-index: 1050;">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <span>Tu Agente</span>
+        <button type="button" class="btn-close btn-close-white btn-sm" id="closeChatBtn"></button>
+    </div>
+    <div class="card-body" style="max-height: 400px; overflow-y: auto;" id="chatMessages">
+        <div class="text-muted small">Hola, ¿en qué puedo ayudarte?</div>
+    </div>
+    <div class="card-footer">
+        <form id="chatForm">
+            <?php echo csrf_field(); ?>
+            <div class="input-group">
+                <input type="text" class="form-control" id="chatInput" placeholder="Escribe..." required>
+                <button type="submit" class="btn btn-primary">Enviar</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    const chatToggleBtn = document.getElementById('chatToggleBtn');
+    const chatWindow = document.getElementById('chatWindow');
+    const closeChatBtn = document.getElementById('closeChatBtn');
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+    const chatMessages = document.getElementById('chatMessages');
+
+    // Mostrar u ocultar ventana de chat
+    chatToggleBtn.addEventListener('click', () => {
+        chatWindow.style.display = chatWindow.style.display === 'none' ? 'block' : 'none';
+    });
+
+    closeChatBtn.addEventListener('click', () => {
+        chatWindow.style.display = 'none';
+    });
+
+    // Manejar envío del mensaje al backend
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        // Mostrar mensaje del usuario
+        chatMessages.innerHTML += `<div class="text-end mb-2"><span class="d-inline-block bg-primary text-white p-2 rounded" style="max-width: 80%; word-wrap: break-word; white-space: pre-wrap;">${message}</span></div>`;
+        // Mostrar indicador de escritura del bot
+        const typingIndicator = document.createElement('div');
+        typingIndicator.classList.add('text-start', 'mb-2');
+        typingIndicator.innerHTML = `
+            <span class="typing-loader bg-secondary text-white p-2 rounded d-inline-block" style="max-width: 80%;">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+            </span>
+        `;
+        chatMessages.appendChild(typingIndicator);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        chatInput.value = '';
+
+        // Enviar mensaje al servidor
+        const response = await fetch("<?php echo e(route('chat.send')); ?>", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
+            },
+            body: JSON.stringify({ message: message })
+        });
+
+        const data = await response.json();
+
+        const botReply = data.reply || 'Sin respuesta del bot.';
+
+
+        chatMessages.innerHTML += `<div class="text-start mb-2"><span class="d-inline-block bg-secondary text-white p-2 rounded" style="max-width: 80%; word-wrap: break-word; white-space: pre-wrap;">${botReply}</span></div>`;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+</script>
+
 </body>
 </html>
 <?php /**PATH C:\xampp\htdocs\Blog\resources\views/layouts/app.blade.php ENDPATH**/ ?>

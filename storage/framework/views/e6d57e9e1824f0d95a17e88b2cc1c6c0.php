@@ -1,5 +1,3 @@
-
-
 <?php $__env->startSection('content'); ?>
 <div class="container py-4">
 
