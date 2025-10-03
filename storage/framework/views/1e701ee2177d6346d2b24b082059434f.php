@@ -53,7 +53,7 @@
                     <li class="nav-item"><a class="nav-link" href="<?php echo e(route('register')); ?>">Registrarse</a></li>
                 <?php else: ?>
                     <li class="nav-item me-3">
-                        <a class="nav-link" href="<?php echo e(route('posts.index')); ?>">Mis Publicaciones</a>
+                        <a class="nav-link" href="<?php echo e(route('posts.index')); ?>">Publicaciones</a>
                     </li>
 
                     <li class="nav-item d-flex align-items-center me-3">

@@ -53,7 +53,7 @@
                     <li class="nav-item"><a class="nav-link" href="{{ route('register') }}">Registrarse</a></li>
                 @else
                     <li class="nav-item me-3">
-                        <a class="nav-link" href="{{ route('posts.index') }}">Mis Publicaciones</a>
+                        <a class="nav-link" href="{{ route('posts.index') }}">Publicaciones</a>
                     </li>
 
                     <li class="nav-item d-flex align-items-center me-3">
