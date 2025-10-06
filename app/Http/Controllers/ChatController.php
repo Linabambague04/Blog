@@ -2,38 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\MCPService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use App\Models\ChatMessage;
 
 class ChatController extends Controller
 {
-    public function index(Request $request)
+    protected $mcp;
+
+    public function __construct(MCPService $mcp)
     {
-        $sessionId = $request->session()->getId();
-
-        $messages = ChatMessage::where(function($query) use ($request, $sessionId) {
-            if ($request->user()) {
-                $query->where('user_id', $request->user()->id);
-            } else {
-                $query->where('session_id', $sessionId);
-            }
-        })->orderBy('created_at')->get();
-
-        return view('chat', compact('messages'));
+        $this->mcp = $mcp;
     }
 
     public function send(Request $request)
     {
-        $request->validate([
-            'message' => 'required|string|max:1000',
-        ]);
+        $request->validate(['message' => 'required|string|max:1000']);
 
         $userMessage = $request->input('message');
         $user = $request->user();
         $sessionId = $request->session()->getId();
 
+        // Guardar mensaje usuario
         ChatMessage::create([
             'sender' => 'user',
             'message' => $userMessage,
@@ -41,16 +31,24 @@ class ChatController extends Controller
             'session_id' => $user ? null : $sessionId,
         ]);
 
-        $historyMessages = ChatMessage::where(function($query) use ($user, $sessionId) {
-            if ($user) {
-                $query->where('user_id', $user->id);
-            } else {
-                $query->where('session_id', $sessionId);
-            }
+        // Obtener historial
+        $historyMessages = ChatMessage::where(function ($q) use ($user, $sessionId) {
+            if ($user) $q->where('user_id', $user->id);
+            else $q->where('session_id', $sessionId);
         })->orderBy('created_at', 'desc')->take(20)->get()->reverse();
 
+        // Construir mensajes MCP
         $messagesForModel = [
-            ['role' => 'system', 'content' => 'Eres un asistente conversacional en español.']
+            [
+                'role' => 'system',
+                'content' => 'Eres un asistente en español con acceso a una base de datos.
+                Puedes usar las siguientes herramientas:
+                - query_database: Para ejecutar consultas SELECT
+                - get_table_schema: Para ver la estructura de una tabla
+                - list_tables: Para listar todas las tablas disponibles
+
+                Cuando el usuario pregunte sobre datos, usa estas herramientas para obtener información actualizada.'
+            ],
         ];
 
         foreach ($historyMessages as $msg) {
@@ -60,30 +58,19 @@ class ChatController extends Controller
             ];
         }
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
-            'Content-Type' => 'application/json',
-        ])->post('https://openrouter.ai/api/v1/chat/completions', [
-            'model' => 'deepseek/deepseek-chat-v3.1:free',
-            'messages' => $messagesForModel,
-        ]);
+        // Llamar servicio MCP
+        $response = $this->mcp->chat($messagesForModel);
 
-        if (!$response->successful()) {
-            Log::error('Error al contactar al modelo OpenRouter', [
-                'status' => $response->status(),
-                'body' => $response->body()
-            ]);
-
+        if (!$response['success']) {
             return response()->json([
                 'error' => true,
-                'message' => 'Error al contactar al modelo.',
-                'details' => $response->body()
+                'message' => 'Error al procesar la solicitud'
             ], 500);
         }
 
-        $data = $response->json();
-        $botReply = $data['choices'][0]['message']['content'] ?? 'Sin respuesta del modelo.';
+        $botReply = $response['reply'];
 
+        // Guardar respuesta del bot
         ChatMessage::create([
             'sender' => 'bot',
             'message' => $botReply,
