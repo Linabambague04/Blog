@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use App\Models\ChatMessage;
 
 class ChatController extends Controller
@@ -25,6 +26,10 @@ class ChatController extends Controller
 
     public function send(Request $request)
     {
+        $request->validate([
+            'message' => 'required|string|max:1000',
+        ]);
+
         $userMessage = $request->input('message');
         $user = $request->user();
         $sessionId = $request->session()->getId();
@@ -36,10 +41,24 @@ class ChatController extends Controller
             'session_id' => $user ? null : $sessionId,
         ]);
 
+        $historyMessages = ChatMessage::where(function($query) use ($user, $sessionId) {
+            if ($user) {
+                $query->where('user_id', $user->id);
+            } else {
+                $query->where('session_id', $sessionId);
+            }
+        })->orderBy('created_at', 'desc')->take(20)->get()->reverse();
+
         $messagesForModel = [
-            ['role' => 'system', 'content' => 'Eres un asistente conversacional en español.'],
-            ['role' => 'user', 'content' => $userMessage],
+            ['role' => 'system', 'content' => 'Eres un asistente conversacional en español.']
         ];
+
+        foreach ($historyMessages as $msg) {
+            $messagesForModel[] = [
+                'role' => $msg->sender === 'user' ? 'user' : 'assistant',
+                'content' => $msg->message,
+            ];
+        }
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
@@ -50,6 +69,11 @@ class ChatController extends Controller
         ]);
 
         if (!$response->successful()) {
+            Log::error('Error al contactar al modelo OpenRouter', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+
             return response()->json([
                 'error' => true,
                 'message' => 'Error al contactar al modelo.',
