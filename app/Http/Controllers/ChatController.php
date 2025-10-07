@@ -46,8 +46,11 @@ class ChatController extends Controller
                 - query_database: Para ejecutar consultas SELECT
                 - get_table_schema: Para ver la estructura de una tabla
                 - list_tables: Para listar todas las tablas disponibles
+                - insert_record: Para insertar nuevos registros
+                - update_record: Para actualizar registros
+                - delete_record: Para eliminar registros
 
-                Cuando el usuario pregunte sobre datos, usa estas herramientas para obtener información actualizada.'
+                **IMPORTANTE:** Cuando insertes algo, el sistema automáticamente asignará el user_id o session_id. Solo necesitas pedir el título y contenido.'
             ],
         ];
 
@@ -58,8 +61,14 @@ class ChatController extends Controller
             ];
         }
 
-        // Llamar servicio MCP
-        $response = $this->mcp->chat($messagesForModel);
+        // Preparar contexto para el servicio MCP
+        $context = [
+            'user_id' => $user ? $user->id : null,
+            'session_id' => $user ? null : $sessionId,
+        ];
+
+        // Llamar servicio MCP con contexto
+        $response = $this->mcp->chat($messagesForModel, $context);
 
         if (!$response['success']) {
             return response()->json([

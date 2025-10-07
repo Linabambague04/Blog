@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 class MCPService
 {
     protected $tools = [];
+    protected $context = [];
 
     public function __construct()
     {
@@ -129,8 +130,9 @@ class MCPService
         ];
     }
 
-    public function chat(array $messages)
+    public function chat(array $messages, array $context = [])
     {
+        $this->context = $context; // Guardar el contexto
         $maxIterations = 5;
         $iteration = 0;
 
@@ -147,6 +149,7 @@ class MCPService
                 'tool_choice' => 'auto',
             ]);
 
+            // ... resto del método igual
             if (!$response->successful()) {
                 Log::error('Error MCP', [
                     'status' => $response->status(),
@@ -162,7 +165,6 @@ class MCPService
             $data = $response->json();
             Log::info('Respuesta completa del modelo', ['response' => $data]);
             $message = $data['choices'][0]['message'] ?? null;
-
 
             if (!$message) {
                 return [
@@ -267,7 +269,6 @@ class MCPService
             return ['error' => 'Tabla y datos son requeridos'];
         }
 
-        // Lista blanca de tablas permitidas (IMPORTANTE: ajusta según tu app)
         $allowedTables = ['users', 'posts'];
 
         if (!in_array($table, $allowedTables)) {
@@ -275,6 +276,15 @@ class MCPService
         }
 
         try {
+            // AGREGAR ESTA LÓGICA: Incluir automáticamente user_id o session_id para posts
+            if ($table === 'posts') {
+                if (!empty($this->context['user_id'])) {
+                    $data['user_id'] = $this->context['user_id'];
+                } else if (!empty($this->context['session_id'])) {
+                    $data['session_id'] = $this->context['session_id'];
+                }
+            }
+
             // Agregar timestamps si la tabla los usa
             if (!isset($data['created_at'])) {
                 $data['created_at'] = now();
