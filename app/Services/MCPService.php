@@ -123,7 +123,7 @@ class MCPService
                     'description' => 'Lista todas las tablas disponibles en la base de datos',
                     'parameters' => [
                         'type' => 'object',
-                        'properties' => []
+                        'properties' => new \stdClass()
                     ]
                 ]
             ]
@@ -132,7 +132,7 @@ class MCPService
 
     public function chat(array $messages, array $context = [])
     {
-        $this->context = $context; // Guardar el contexto
+        $this->context = $context;
         $maxIterations = 5;
         $iteration = 0;
 
@@ -143,13 +143,13 @@ class MCPService
                 'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
                 'Content-Type' => 'application/json',
             ])->post('https://openrouter.ai/api/v1/chat/completions', [
-                'model' => 'deepseek/deepseek-chat-v3.1:free',
+                // CAMBIO IMPORTANTE: Usar un modelo que soporte tool use
+                'model' => 'openai/gpt-4o-mini', // O 'anthropic/claude-3.5-sonnet', 'meta-llama/llama-3.1-70b-instruct'
                 'messages' => $messages,
                 'tools' => $this->tools,
                 'tool_choice' => 'auto',
             ]);
 
-            // ... resto del método igual
             if (!$response->successful()) {
                 Log::error('Error MCP', [
                     'status' => $response->status(),
@@ -179,6 +179,11 @@ class MCPService
                 foreach ($message['tool_calls'] as $toolCall) {
                     $functionName = $toolCall['function']['name'];
                     $functionArgs = json_decode($toolCall['function']['arguments'], true);
+
+                    Log::info('Ejecutando función', [
+                        'function' => $functionName,
+                        'args' => $functionArgs
+                    ]);
 
                     $result = $this->executeFunction($functionName, $functionArgs);
 
@@ -276,7 +281,7 @@ class MCPService
         }
 
         try {
-            // AGREGAR ESTA LÓGICA: Incluir automáticamente user_id o session_id para posts
+            // Incluir automáticamente user_id o session_id para posts
             if ($table === 'posts') {
                 if (!empty($this->context['user_id'])) {
                     $data['user_id'] = $this->context['user_id'];
@@ -318,7 +323,6 @@ class MCPService
         }
 
         try {
-            // Agregar updated_at
             $data['updated_at'] = now();
 
             $query = DB::table($table);
