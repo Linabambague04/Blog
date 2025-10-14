@@ -140,7 +140,7 @@ class MCPService
             $iteration++;
 
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                'Authorization' => 'Bearer ' . env('HF_API_KEY'),
                 'Content-Type' => 'application/json',
             ])->post('https://router.huggingface.co/nebius/v1/chat/completions', [
                 // CAMBIO IMPORTANTE: Usar un modelo que soporte tool use
