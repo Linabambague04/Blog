@@ -50,7 +50,17 @@ class ChatController extends Controller
                 - update_record: Para actualizar registros
                 - delete_record: Para eliminar registros
 
-                **IMPORTANTE:** Cuando insertes algo, el sistema automáticamente asignará el user_id o session_id. Solo necesitas pedir el título y contenido.'
+
+
+                **IMPORTANTE:** Cuando insertes algo, el sistema automáticamente asignará el user_id o session_id. Solo necesitas pedir el título y contenido.
+                **OTRO PUNTO IMPORTANTE sobre la tabla posts:**
+                    - La columna se llama "title" (no "titulo")
+                    - La columna se llama "content" (no "contenido")
+                    - El sistema automáticamente asignará el user_id o session_id
+                    - Usa nombres de columnas en INGLÉS para la tabla posts.
+                    
+                    Ejemplo de inserción correcta en posts:
+                    {"table": "posts", "data": {"title": "Mi título", "content": "Mi contenido"}}'
             ],
         ];
 

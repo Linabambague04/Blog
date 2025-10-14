@@ -142,9 +142,9 @@ class MCPService
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
                 'Content-Type' => 'application/json',
-            ])->post('https://openrouter.ai/api/v1/chat/completions', [
+            ])->post('https://router.huggingface.co/nebius/v1/chat/completions', [
                 // CAMBIO IMPORTANTE: Usar un modelo que soporte tool use
-                'model' => 'openai/gpt-4o-mini', // O 'anthropic/claude-3.5-sonnet', 'meta-llama/llama-3.1-70b-instruct'
+                'model' => 'meta-llama/Meta-Llama-3.1-8B-Instruct-fast', // O 'anthropic/claude-3.5-sonnet', 'meta-llama/llama-3.1-70b-instruct'
                 'messages' => $messages,
                 'tools' => $this->tools,
                 'tool_choice' => 'auto',
