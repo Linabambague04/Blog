@@ -1,3 +1,5 @@
+
+
 <?php $__env->startSection('title', 'Registro'); ?>
 
 <?php $__env->startSection('content'); ?>

@@ -13,19 +13,18 @@ class MCPService
 
     public function __construct()
     {
-        // Definir herramientas MCP disponibles
         $this->tools = [
             [
                 'type' => 'function',
                 'function' => [
                     'name' => 'query_database',
-                    'description' => 'Ejecuta una consulta SQL SELECT en la base de datos',
+                    'description' => 'Ejecuta una consulta SQL SELECT en la base de datos para obtener información',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
                             'query' => [
                                 'type' => 'string',
-                                'description' => 'La consulta SQL SELECT a ejecutar (solo lectura)'
+                                'description' => 'La consulta SQL SELECT a ejecutar (solo lectura). Ejemplo: SELECT * FROM posts ORDER BY created_at DESC'
                             ],
                         ],
                         'required' => ['query']
@@ -36,17 +35,22 @@ class MCPService
                 'type' => 'function',
                 'function' => [
                     'name' => 'insert_record',
-                    'description' => 'Inserta un nuevo registro en una tabla',
+                    'description' => 'Inserta un nuevo registro en la tabla posts. NO necesitas incluir user_id, session_id, created_at o updated_at',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
                             'table' => [
                                 'type' => 'string',
-                                'description' => 'Nombre de la tabla'
+                                'description' => 'Nombre de la tabla (ejemplo: "posts")',
+                                'enum' => ['posts', 'users']
                             ],
                             'data' => [
                                 'type' => 'object',
-                                'description' => 'Objeto con los datos a insertar (clave: valor)'
+                                'description' => 'Datos a insertar. Para posts usa: {"title": "tu titulo", "content": "tu contenido"}',
+                                'properties' => [
+                                    'title' => ['type' => 'string'],
+                                    'content' => ['type' => 'string']
+                                ]
                             ],
                         ],
                         'required' => ['table', 'data']
@@ -57,13 +61,14 @@ class MCPService
                 'type' => 'function',
                 'function' => [
                     'name' => 'update_record',
-                    'description' => 'Actualiza registros en una tabla',
+                    'description' => 'Actualiza registros existentes en una tabla',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
                             'table' => [
                                 'type' => 'string',
-                                'description' => 'Nombre de la tabla'
+                                'description' => 'Nombre de la tabla',
+                                'enum' => ['posts', 'users']
                             ],
                             'data' => [
                                 'type' => 'object',
@@ -71,7 +76,7 @@ class MCPService
                             ],
                             'where' => [
                                 'type' => 'object',
-                                'description' => 'Condiciones WHERE (clave: valor)'
+                                'description' => 'Condiciones WHERE (clave: valor). Ejemplo: {"id": 1}'
                             ],
                         ],
                         'required' => ['table', 'data', 'where']
@@ -88,11 +93,12 @@ class MCPService
                         'properties' => [
                             'table' => [
                                 'type' => 'string',
-                                'description' => 'Nombre de la tabla'
+                                'description' => 'Nombre de la tabla',
+                                'enum' => ['posts', 'users']
                             ],
                             'where' => [
                                 'type' => 'object',
-                                'description' => 'Condiciones WHERE para identificar registros a eliminar'
+                                'description' => 'Condiciones WHERE para identificar registros. Ejemplo: {"id": 1}'
                             ],
                         ],
                         'required' => ['table', 'where']
@@ -103,7 +109,7 @@ class MCPService
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_table_schema',
-                    'description' => 'Obtiene el esquema de una tabla de la base de datos',
+                    'description' => 'Obtiene la estructura/esquema de una tabla',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
@@ -123,7 +129,7 @@ class MCPService
                     'description' => 'Lista todas las tablas disponibles en la base de datos',
                     'parameters' => [
                         'type' => 'object',
-                        'properties' => new \stdClass()
+                        'properties' => []
                     ]
                 ]
             ]
@@ -133,79 +139,122 @@ class MCPService
     public function chat(array $messages, array $context = [])
     {
         $this->context = $context;
-        $maxIterations = 5;
+        $maxIterations = 10; // Aumentar para permitir más interacciones
         $iteration = 0;
 
         while ($iteration < $maxIterations) {
             $iteration++;
-
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
-                'Content-Type' => 'application/json',
-            ])->post('https://router.huggingface.co/nebius/v1/chat/completions', [
-                // CAMBIO IMPORTANTE: Usar un modelo que soporte tool use
-                'model' => 'meta-llama/Meta-Llama-3.1-8B-Instruct-fast', // O 'anthropic/claude-3.5-sonnet', 'meta-llama/llama-3.1-70b-instruct'
-                'messages' => $messages,
-                'tools' => $this->tools,
-                'tool_choice' => 'auto',
+            
+            Log::info("Iteración {$iteration} del chat MCP", [
+                'mensaje_count' => count($messages)
             ]);
 
-            if (!$response->successful()) {
-                Log::error('Error MCP', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
+            try {
+                $response = Http::timeout(30)
+                    ->withHeaders([
+                        'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                        'Content-Type' => 'application/json',
+                    ])
+                    ->post('https://router.huggingface.co/nebius/v1/chat/completions', [
+                        'model' => 'meta-llama/Meta-Llama-3.1-8B-Instruct-fast',
+                        'messages' => $messages,
+                        'tools' => $this->tools,
+                        'tool_choice' => 'auto',
+                        'temperature' => 0.7,
+                    ]);
+
+                if (!$response->successful()) {
+                    Log::error('Error en llamada a API', [
+                        'status' => $response->status(),
+                        'body' => $response->body()
+                    ]);
+
+                    return [
+                        'success' => false,
+                        'error' => 'Error de API: ' . $response->status(),
+                    ];
+                }
+
+                $data = $response->json();
+                $message = $data['choices'][0]['message'] ?? null;
+
+                if (!$message) {
+                    Log::error('No hay mensaje en la respuesta', ['data' => $data]);
+                    return [
+                        'success' => false,
+                        'error' => 'Respuesta inválida del modelo',
+                    ];
+                }
+
+                // Agregar mensaje del asistente al historial
+                $messages[] = $message;
+
+                // Si hay llamadas a herramientas, ejecutarlas
+                if (isset($message['tool_calls']) && count($message['tool_calls']) > 0) {
+                    Log::info('Herramientas llamadas', [
+                        'count' => count($message['tool_calls']),
+                        'tools' => array_map(fn($t) => $t['function']['name'], $message['tool_calls'])
+                    ]);
+
+                    foreach ($message['tool_calls'] as $toolCall) {
+                        $functionName = $toolCall['function']['name'];
+                        $functionArgs = json_decode($toolCall['function']['arguments'], true);
+
+                        Log::info('Ejecutando función', [
+                            'function' => $functionName,
+                            'args' => $functionArgs
+                        ]);
+
+                        $result = $this->executeFunction($functionName, $functionArgs);
+
+                        Log::info('Resultado de función', [
+                            'function' => $functionName,
+                            'result' => $result
+                        ]);
+
+                        // Agregar resultado al historial
+                        $messages[] = [
+                            'role' => 'tool',
+                            'tool_call_id' => $toolCall['id'],
+                            'content' => json_encode($result, JSON_UNESCAPED_UNICODE),
+                        ];
+                    }
+
+                    // Continuar el bucle para obtener la respuesta final
+                    continue;
+                }
+
+                // Si no hay tool_calls, tenemos la respuesta final
+                $finalContent = $message['content'] ?? '';
+                
+                Log::info('Respuesta final del asistente', [
+                    'content' => $finalContent,
+                    'iterations' => $iteration
+                ]);
+
+                return [
+                    'success' => true,
+                    'reply' => $finalContent ?: 'He procesado tu solicitud.',
+                ];
+
+            } catch (\Exception $e) {
+                Log::error('Excepción en chat MCP', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
                 ]);
 
                 return [
                     'success' => false,
-                    'error' => $response->body(),
+                    'error' => 'Error interno: ' . $e->getMessage(),
                 ];
             }
-
-            $data = $response->json();
-            Log::info('Respuesta completa del modelo', ['response' => $data]);
-            $message = $data['choices'][0]['message'] ?? null;
-
-            if (!$message) {
-                return [
-                    'success' => false,
-                    'error' => 'No message in response',
-                ];
-            }
-
-            $messages[] = $message;
-
-            if (isset($message['tool_calls']) && count($message['tool_calls']) > 0) {
-                foreach ($message['tool_calls'] as $toolCall) {
-                    $functionName = $toolCall['function']['name'];
-                    $functionArgs = json_decode($toolCall['function']['arguments'], true);
-
-                    Log::info('Ejecutando función', [
-                        'function' => $functionName,
-                        'args' => $functionArgs
-                    ]);
-
-                    $result = $this->executeFunction($functionName, $functionArgs);
-
-                    $messages[] = [
-                        'role' => 'tool',
-                        'tool_call_id' => $toolCall['id'],
-                        'content' => json_encode($result),
-                    ];
-                }
-
-                continue;
-            }
-
-            return [
-                'success' => true,
-                'reply' => $message['content'] ?? 'Sin respuesta.',
-            ];
         }
 
+        Log::warning('Se alcanzó el máximo de iteraciones');
+        
         return [
             'success' => false,
-            'error' => 'Max iterations reached',
+            'error' => 'Se alcanzó el límite de iteraciones',
         ];
     }
 
@@ -236,12 +285,13 @@ class MCPService
                     return $this->listTables();
 
                 default:
-                    return ['error' => 'Function not found'];
+                    return ['error' => 'Función no encontrada: ' . $name];
             }
         } catch (\Exception $e) {
-            Log::error('Error executing function', [
+            Log::error('Error ejecutando función', [
                 'function' => $name,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
 
             return ['error' => $e->getMessage()];
@@ -250,76 +300,92 @@ class MCPService
 
     protected function queryDatabase(string $query)
     {
-        if (!preg_match('/^\s*SELECT/i', $query)) {
-            return ['error' => 'Solo se permiten consultas SELECT'];
+        $query = trim($query);
+        
+        if (empty($query)) {
+            return ['error' => 'La consulta no puede estar vacía'];
         }
 
-        $query = rtrim($query, ';') . ' LIMIT 100';
+        if (!preg_match('/^\s*SELECT/i', $query)) {
+            return ['error' => 'Solo se permiten consultas SELECT por seguridad'];
+        }
+
+        // Agregar LIMIT si no existe
+        if (!preg_match('/LIMIT\s+\d+/i', $query)) {
+            $query = rtrim($query, ';') . ' LIMIT 100';
+        }
 
         try {
             $results = DB::select($query);
+            
             return [
                 'success' => true,
                 'data' => $results,
-                'count' => count($results)
+                'count' => count($results),
+                'message' => 'Consulta ejecutada correctamente'
             ];
         } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
+            return [
+                'error' => 'Error en consulta SQL: ' . $e->getMessage()
+            ];
         }
     }
 
     protected function insertRecord(string $table, array $data)
     {
-        if (empty($table) || empty($data)) {
-            return ['error' => 'Tabla y datos son requeridos'];
+        if (empty($table)) {
+            return ['error' => 'El nombre de la tabla es requerido'];
+        }
+
+        if (empty($data)) {
+            return ['error' => 'Los datos a insertar son requeridos'];
         }
 
         $allowedTables = ['users', 'posts'];
 
         if (!in_array($table, $allowedTables)) {
-            return ['error' => 'No tienes permiso para insertar en esta tabla'];
+            return ['error' => "No tienes permiso para insertar en la tabla '{$table}'"];
         }
 
         try {
-            // Incluir automáticamente user_id o session_id para posts
+            // Agregar contexto automáticamente para posts
             if ($table === 'posts') {
                 if (!empty($this->context['user_id'])) {
                     $data['user_id'] = $this->context['user_id'];
-                } else if (!empty($this->context['session_id'])) {
+                } elseif (!empty($this->context['session_id'])) {
                     $data['session_id'] = $this->context['session_id'];
                 }
             }
 
-            // Agregar timestamps si la tabla los usa
-            if (!isset($data['created_at'])) {
-                $data['created_at'] = now();
-            }
-            if (!isset($data['updated_at'])) {
-                $data['updated_at'] = now();
-            }
+            // Agregar timestamps
+            $data['created_at'] = $data['created_at'] ?? now();
+            $data['updated_at'] = $data['updated_at'] ?? now();
 
             $id = DB::table($table)->insertGetId($data);
 
             return [
                 'success' => true,
-                'message' => 'Registro insertado correctamente',
-                'id' => $id
+                'message' => "Registro insertado correctamente en '{$table}'",
+                'id' => $id,
+                'data' => $data
             ];
         } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
+            return [
+                'error' => 'Error al insertar: ' . $e->getMessage()
+            ];
         }
     }
 
     protected function updateRecord(string $table, array $data, array $where)
     {
         if (empty($table) || empty($data) || empty($where)) {
-            return ['error' => 'Tabla, datos y condiciones son requeridos'];
+            return ['error' => 'Tabla, datos y condiciones WHERE son requeridos'];
         }
 
         $allowedTables = ['users', 'posts'];
 
         if (!in_array($table, $allowedTables)) {
-            return ['error' => 'No tienes permiso para actualizar esta tabla'];
+            return ['error' => "No tienes permiso para actualizar la tabla '{$table}'"];
         }
 
         try {
@@ -335,24 +401,26 @@ class MCPService
 
             return [
                 'success' => true,
-                'message' => 'Registro(s) actualizado(s) correctamente',
+                'message' => "Registro(s) actualizado(s) en '{$table}'",
                 'affected_rows' => $affected
             ];
         } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
+            return [
+                'error' => 'Error al actualizar: ' . $e->getMessage()
+            ];
         }
     }
 
     protected function deleteRecord(string $table, array $where)
     {
         if (empty($table) || empty($where)) {
-            return ['error' => 'Tabla y condiciones son requeridos'];
+            return ['error' => 'Tabla y condiciones WHERE son requeridos'];
         }
 
         $allowedTables = ['users', 'posts'];
 
         if (!in_array($table, $allowedTables)) {
-            return ['error' => 'No tienes permiso para eliminar de esta tabla'];
+            return ['error' => "No tienes permiso para eliminar de la tabla '{$table}'"];
         }
 
         try {
@@ -366,16 +434,22 @@ class MCPService
 
             return [
                 'success' => true,
-                'message' => 'Registro(s) eliminado(s) correctamente',
+                'message' => "Registro(s) eliminado(s) de '{$table}'",
                 'affected_rows' => $affected
             ];
         } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
+            return [
+                'error' => 'Error al eliminar: ' . $e->getMessage()
+            ];
         }
     }
 
     protected function getTableSchema(string $tableName)
     {
+        if (empty($tableName)) {
+            return ['error' => 'El nombre de la tabla es requerido'];
+        }
+
         try {
             $columns = DB::select("DESCRIBE {$tableName}");
 
@@ -385,7 +459,9 @@ class MCPService
                 'columns' => $columns
             ];
         } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
+            return [
+                'error' => 'Error al obtener esquema: ' . $e->getMessage()
+            ];
         }
     }
 
@@ -396,10 +472,13 @@ class MCPService
 
             return [
                 'success' => true,
-                'tables' => $tables
+                'tables' => $tables,
+                'count' => count($tables)
             ];
         } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
+            return [
+                'error' => 'Error al listar tablas: ' . $e->getMessage()
+            ];
         }
     }
 }

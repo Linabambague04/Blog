@@ -37,6 +37,19 @@
                         </div>
                     </div>
                 </a>
+                {{-- ❤️ Botón Me gusta --}}
+                <div class="d-flex justify-content-center align-items-center mt-auto mb-2">
+                    <button 
+                        class="btn btn-link p-0 border-0" 
+                        onclick="toggleLike({{ $post->id }})"
+                        style="font-size: 1.4rem; color: {{ $post->isLikedBy(Auth::user()) ? 'red' : '#6c757d' }};">
+                        <i id="heart-icon-{{ $post->id }}" 
+                        class="bi {{ $post->isLikedBy(Auth::user()) ? 'bi-heart-fill' : 'bi-heart' }}"></i>
+                    </button>
+                    <span id="like-count-{{ $post->id }}" class="ms-1 text-muted small">
+                        {{ $post->likeCount() }}
+                    </span>
+                </div>
 
                 {{-- Botones separados para no interferir con el enlace --}}
                 <div class="card-footer d-flex gap-2">
@@ -51,7 +64,9 @@
                             @method('DELETE')
                             <button type="submit" class="btn btn-outline-danger btn-sm w-100">Eliminar</button>
                         </form>
+
                     @else
+                    
                         <a href="{{ route('posts.show', $post->id) }}" class="btn btn-outline-secondary btn-sm w-100">Ver</a>
                     @endif
                 </div>
@@ -69,4 +84,32 @@
         {{ $posts->links() }}
     </div>
 </div>
+<script>
+async function toggleLike(postId) {
+    const response = await fetch(`/posts/${postId}/like`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        }
+    });
+
+    const data = await response.json();
+    const icon = document.getElementById(`heart-icon-${postId}`);
+    const count = document.getElementById(`like-count-${postId}`);
+
+    if (data.status === 'liked') {
+        icon.classList.remove('bi-heart');
+        icon.classList.add('bi-heart-fill');
+        icon.style.color = 'red';
+    } else {
+        icon.classList.remove('bi-heart-fill');
+        icon.classList.add('bi-heart');
+        icon.style.color = '#6c757d';
+    }
+
+    count.textContent = data.count;
+}
+</script>
 @endsection
+

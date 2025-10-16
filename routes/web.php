@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\NotificationController;
 
 Route::get('/', function () {
     return view('home');
@@ -24,6 +25,27 @@ Route::middleware('auth')->group(function () {
 
 Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
 Route::post('/chat', [ChatController::class, 'send'])->name('chat.send');
+
+
+Route::middleware(['auth'])->group(function () {
+    // ✅ Listar todas las notificaciones
+    Route::get('/notifications', [NotificationController::class, 'index'])
+        ->name('notifications.index');
+
+    // ✅ Mostrar una notificación específica (opcional)
+    Route::get('/notifications/{notification}', [NotificationController::class, 'show'])
+        ->name('notifications.show');
+
+    // ✅ Eliminar una notificación (opcional)
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])
+        ->name('notifications.destroy');
+});
+
+Route::post('/posts/{post}/like', [App\Http\Controllers\PostLikeController::class, 'toggleLike'])
+    ->name('posts.like')
+    ->middleware('auth');
+
+
 
 
 

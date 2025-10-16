@@ -37,30 +37,43 @@ class ChatController extends Controller
             else $q->where('session_id', $sessionId);
         })->orderBy('created_at', 'desc')->take(20)->get()->reverse();
 
-        // Construir mensajes MCP
+        // Construir mensajes MCP con un prompt mejorado
         $messagesForModel = [
             [
                 'role' => 'system',
-                'content' => 'Eres un asistente en español con acceso a una base de datos.
-                Puedes usar las siguientes herramientas:
-                - query_database: Para ejecutar consultas SELECT
-                - get_table_schema: Para ver la estructura de una tabla
-                - list_tables: Para listar todas las tablas disponibles
-                - insert_record: Para insertar nuevos registros
-                - update_record: Para actualizar registros
-                - delete_record: Para eliminar registros
+                'content' => 'Eres un asistente útil en español que puede interactuar con una base de datos.
 
+                REGLAS IMPORTANTES:
+                1. Responde SIEMPRE en español de manera conversacional y amigable
+                2. Cuando el usuario pida crear/insertar algo, usa la función insert_record
+                3. Cuando el usuario pida ver/consultar datos, usa query_database
+                4. NO devuelvas JSON literal en tu respuesta - usa las herramientas disponibles
+                5. Después de ejecutar una acción, confirma lo que hiciste en lenguaje natural
 
+                TABLAS DISPONIBLES:
+                - posts: Tiene columnas "title" (título) y "content" (contenido)
+                - users: Información de usuarios
 
-                **IMPORTANTE:** Cuando insertes algo, el sistema automáticamente asignará el user_id o session_id. Solo necesitas pedir el título y contenido.
-                **OTRO PUNTO IMPORTANTE sobre la tabla posts:**
-                    - La columna se llama "title" (no "titulo")
-                    - La columna se llama "content" (no "contenido")
-                    - El sistema automáticamente asignará el user_id o session_id
-                    - Usa nombres de columnas en INGLÉS para la tabla posts.
-                    
-                    Ejemplo de inserción correcta en posts:
-                    {"table": "posts", "data": {"title": "Mi título", "content": "Mi contenido"}}'
+                IMPORTANTE SOBRE POSTS:
+                - Usa "title" (no "titulo") 
+                - Usa "content" (no "contenido")
+                - NO necesitas especificar user_id o session_id, el sistema lo hace automáticamente
+                - Las fechas created_at y updated_at también se agregan automáticamente
+
+                EJEMPLOS DE USO:
+
+                Usuario: "crea un post sobre la felicidad"
+                Tú: [Usas insert_record con {"table": "posts", "data": {"title": "La felicidad", "content": "..."}}]
+                Luego respondes: "¡Listo! He creado una publicación sobre la felicidad."
+
+                Usuario: "muéstrame los posts más populares"
+                Tú: [Usas query_database con "SELECT * FROM posts ORDER BY likes DESC LIMIT 5"]
+                Luego respondes con los resultados de manera amigable.
+
+                Usuario: "cuánto es 2+2"
+                Tú: "2 + 2 = 4"
+
+                Sé natural, útil y usa las herramientas cuando sea apropiado.'
             ],
         ];
 
@@ -83,11 +96,20 @@ class ChatController extends Controller
         if (!$response['success']) {
             return response()->json([
                 'error' => true,
-                'message' => 'Error al procesar la solicitud'
+                'message' => 'Error al procesar la solicitud: ' . ($response['error'] ?? 'Desconocido')
             ], 500);
         }
 
         $botReply = $response['reply'];
+
+        // Limpiar respuesta si contiene JSON accidental
+        $botReply = preg_replace('/\{"type":\s*"function"[^}]*\}/', '', $botReply);
+        $botReply = trim($botReply);
+
+        // Si la respuesta está vacía después de limpiar, dar un mensaje por defecto
+        if (empty($botReply)) {
+            $botReply = 'He procesado tu solicitud correctamente.';
+        }
 
         // Guardar respuesta del bot
         ChatMessage::create([

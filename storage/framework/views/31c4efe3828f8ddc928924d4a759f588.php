@@ -35,6 +35,20 @@
                         </div>
                     </div>
                 </a>
+                
+                <div class="d-flex justify-content-center align-items-center mt-auto mb-2">
+                    <button 
+                        class="btn btn-link p-0 border-0" 
+                        onclick="toggleLike(<?php echo e($post->id); ?>)"
+                        style="font-size: 1.4rem; color: <?php echo e($post->isLikedBy(Auth::user()) ? 'red' : '#6c757d'); ?>;">
+                        <i id="heart-icon-<?php echo e($post->id); ?>" 
+                        class="bi <?php echo e($post->isLikedBy(Auth::user()) ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
+                    </button>
+                    <span id="like-count-<?php echo e($post->id); ?>" class="ms-1 text-muted small">
+                        <?php echo e($post->likeCount()); ?>
+
+                    </span>
+                </div>
 
                 
                 <div class="card-footer d-flex gap-2">
@@ -49,7 +63,9 @@
                             <?php echo method_field('DELETE'); ?>
                             <button type="submit" class="btn btn-outline-danger btn-sm w-100">Eliminar</button>
                         </form>
+
                     <?php else: ?>
+                    
                         <a href="<?php echo e(route('posts.show', $post->id)); ?>" class="btn btn-outline-secondary btn-sm w-100">Ver</a>
                     <?php endif; ?>
                 </div>
@@ -68,6 +84,34 @@
 
     </div>
 </div>
+<script>
+async function toggleLike(postId) {
+    const response = await fetch(`/posts/${postId}/like`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
+        }
+    });
+
+    const data = await response.json();
+    const icon = document.getElementById(`heart-icon-${postId}`);
+    const count = document.getElementById(`like-count-${postId}`);
+
+    if (data.status === 'liked') {
+        icon.classList.remove('bi-heart');
+        icon.classList.add('bi-heart-fill');
+        icon.style.color = 'red';
+    } else {
+        icon.classList.remove('bi-heart-fill');
+        icon.classList.add('bi-heart');
+        icon.style.color = '#6c757d';
+    }
+
+    count.textContent = data.count;
+}
+</script>
 <?php $__env->stopSection(); ?>
+
 
 <?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\xampp\htdocs\Blog\resources\views/posts/index.blade.php ENDPATH**/ ?>
