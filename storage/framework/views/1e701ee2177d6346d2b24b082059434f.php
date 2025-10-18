@@ -59,6 +59,14 @@
                         <a class="nav-link" href="<?php echo e(route('posts.index')); ?>">Publicaciones</a>
                     </li>
 
+                    <li class="nav-item me-3">
+                        <a href="<?php echo e(route('posts.generarPDF')); ?>" 
+                        class="btn btn-warning btn-sm fw-semibold text-dark">
+                        <i class="bi bi-file-earmark-arrow-down-fill"></i> Descargar informe
+                        </a>
+                    </li>
+
+
                     <li class="nav-item d-flex align-items-center me-3">
                         
                         <?php if(Auth::user()->avatar && file_exists(public_path('storage/' . Auth::user()->avatar))): ?>

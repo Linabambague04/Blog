@@ -45,6 +45,15 @@ Route::post('/posts/{post}/like', [App\Http\Controllers\PostLikeController::clas
     ->name('posts.like')
     ->middleware('auth');
 
+Route::get('/posts/load-more', [App\Http\Controllers\PostController::class, 'loadMore'])
+    ->name('posts.loadMore');
+
+Route::get('/generar-pdf', [App\Http\Controllers\PostController::class, 'generarPDF'])
+    ->name('posts.generarPDF')
+    ->middleware('auth');
+
+
+
 
 
 

@@ -1,8 +1,13 @@
 <?php
 
 namespace App\Http\Controllers;
+
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Post;
+use App\Models\Recommendation;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Storage;
 
 use Illuminate\Http\Request;
 
@@ -11,8 +16,16 @@ class PostController extends Controller
 
     public function index()
     {
-        $posts = Post::with('user')->paginate(10); 
-        return view('posts.index', compact('posts'));
+        $posts = Post::with('user')->paginate(10);
+
+        $recommendation = Recommendation::where('user_id', auth()->id())->first();
+
+        $recommendedPosts = collect();
+        if ($recommendation && isset($recommendation->recommended_items['recomendaciones'])) {
+            $recommendedPosts = Post::whereIn('id', $recommendation->recommended_items['recomendaciones'])->get();
+        }
+
+        return view('posts.index', compact('posts', 'recommendation', 'recommendedPosts'));
     }
 
     public function create ()
@@ -37,10 +50,19 @@ class PostController extends Controller
 
         $data['user_id'] = auth()->id();
 
-        Post::create($data);
+        $post = Post::create($data); 
+
+        try {
+            Http::post('http://localhost:5678/webhook-test/24423912-a00b-4540-9942-994a66b0b79f', [
+                'user_id' => $post->user_id,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error al notificar a n8n: ' . $e->getMessage());
+        }
 
         return redirect()->route('posts.index')->with('success', 'Post creado con éxito.');
     }
+
 
     public function show(Post $post)
     {
@@ -77,10 +99,20 @@ class PostController extends Controller
 
         $post->update($data);
 
+
+        try {
+            Http::post('http://localhost:5678/webhook-test/24423912-a00b-4540-9942-994a66b0b79f', [
+                'user_id' => $post->user_id,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error al notificar a n8n: ' . $e->getMessage());
+        }
+
         return redirect()
             ->route('posts.index')
             ->with('success', 'Post actualizado con éxito.');
     }
+
 
 
     public function destroy(Post $post)
@@ -92,6 +124,16 @@ class PostController extends Controller
         $post->delete();
 
         return redirect()->route('posts.index')->with('success', 'Post eliminado correctamente.');
+    }
+
+    public function generarPDF()
+    {
+        $user = auth()->user();
+        $posts = \App\Models\Post::where('user_id', $user->id)->get();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.posts', compact('user', 'posts'));
+
+        return $pdf->download('posts-' . $user->name . '.pdf');
     }
 
 
