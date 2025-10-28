@@ -18,6 +18,7 @@ Route::post('/register', [UserController::class, 'register']);
 Route::middleware('auth')->group(function () {
     Route::get('/profile/edit', [UserController::class, 'edit'])->name('profile.edit');
     Route::put('/profile/update', [UserController::class, 'update'])->name('profile.update');
+    Route::delete('/profile/delete', [UserController::class, 'destroy'])->name('profile.destroy');
     Route::post('/logout', [UserController::class, 'logout'])->name('logout');
 
     Route::resource('posts', PostController::class);

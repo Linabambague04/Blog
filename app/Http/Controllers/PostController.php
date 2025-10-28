@@ -53,7 +53,7 @@ class PostController extends Controller
         $post = Post::create($data); 
 
         try {
-            Http::post('http://localhost:5678/webhook-test/24423912-a00b-4540-9942-994a66b0b79f', [
+            Http::post('http://localhost:5678/webhook-test/recommendations', [
                 'user_id' => $post->user_id,
             ]);
         } catch (\Exception $e) {
@@ -101,7 +101,7 @@ class PostController extends Controller
 
 
         try {
-            Http::post('http://localhost:5678/webhook-test/24423912-a00b-4540-9942-994a66b0b79f', [
+            Http::post('http://localhost:5678/webhook-test/recommendations', [
                 'user_id' => $post->user_id,
             ]);
         } catch (\Exception $e) {

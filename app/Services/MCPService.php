@@ -152,7 +152,7 @@ class MCPService
             try {
                 $response = Http::timeout(30)
                     ->withHeaders([
-                        'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                        'Authorization' => 'Bearer ' . env('API_KEY'),
                         'Content-Type' => 'application/json',
                     ])
                     ->post('https://router.huggingface.co/nebius/v1/chat/completions', [

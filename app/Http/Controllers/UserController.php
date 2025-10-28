@@ -101,4 +101,37 @@ class UserController extends Controller
             'email' => 'Las credenciales no son correctas.',
         ])->withInput();
     }
+
+    public function destroy(Request $request)
+    {
+        $user = Auth::user();
+
+        // Validar la contraseña ingresada
+        $request->validate([
+            'password' => 'required',
+        ]);
+
+        // Verificar la contraseña
+        if (!Hash::check($request->password, $user->password)) {
+            return back()->withErrors(['password' => 'La contraseña no es correcta.']);
+        }
+
+        // Cerrar sesión antes de eliminar
+        Auth::logout();
+
+        // Eliminar avatar si existe
+        if ($user->avatar && \Storage::disk('public')->exists($user->avatar)) {
+            \Storage::disk('public')->delete($user->avatar);
+        }
+
+        // Eliminar el usuario
+        $user->delete();
+
+        // Invalidar sesión y regenerar token
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        // Redirigir al home con mensaje
+        return redirect('/')->with('success', 'Tu cuenta ha sido eliminada correctamente.');
+    }
 }
